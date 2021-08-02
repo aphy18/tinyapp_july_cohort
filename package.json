@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/aphy18/tinyapp_july_cohort/issues"
   },
-  "homepage": "https://github.com/aphy18/tinyapp_july_cohort#readme"
+  "homepage": "https://github.com/aphy18/tinyapp_july_cohort#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
 }
