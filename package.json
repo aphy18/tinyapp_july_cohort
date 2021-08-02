@@ -1,0 +1,20 @@
+{
+  "name": "tinyapp_july_cohort",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aphy18/tinyapp_july_cohort.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aphy18/tinyapp_july_cohort/issues"
+  },
+  "homepage": "https://github.com/aphy18/tinyapp_july_cohort#readme"
+}
