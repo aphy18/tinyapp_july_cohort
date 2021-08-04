@@ -107,15 +107,25 @@ app.get("/login", (req,res) => {
 });
 
 app.post("/login", (req,res) => {
-  // if email == email
+  const email = req.body.email;
+  const password = req.body.password;
+  const checkEmail = req.cookies["email"];
+  const checkPassword = req.cookies["password"];
+
+  if (email !== checkEmail || password !== checkPassword) {
+    res.status(403).send("Email or password incorrect. Please try again.");
+  }
+
   res.cookie("userID", users.userID);
   res.redirect("/urls");
 });
 
-// app.post("/logout", (req,res) => {
-//   res.clearCookie("userID", users.userID);
-//   res.redirect("/urls");
-// });
+app.get("/logout", (req,res) => {
+  res.clearCookie("userID", users.userID);
+  res.clearCookie("email", users.email);
+  console.log("users-email",users.email);
+  res.redirect("/login");
+});
 
 app.get("/urls/:shortURL", (req, res) => {
   const user = req.cookies["userID"];

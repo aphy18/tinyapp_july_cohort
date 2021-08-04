@@ -12,6 +12,7 @@
             <p>Logged in as <%= email %></p>
             <form action="/logout" method="POST"><a class="nav-item nav-link" href="/logout">Logout</a></form>
           <% } else { %>
+            <form action="/register" method="POST"><a class="nav-item nav-link" href="/register">Register</a></form>
            <form action="/login" method="POST"><a class="nav-item nav-link" href="/login">Login</a></form>
            <% } %>
        </div>
