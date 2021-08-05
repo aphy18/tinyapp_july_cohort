@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const port = 8080;
+// const cookieSession = require('cookie-session');
 app.set("view engine", "ejs");
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
@@ -22,14 +23,25 @@ const isEmailBeingUsed =  (users, email) => {
   return false;
 };
 
+const urlsForUser = (id,db) => {
+  const userURLs = {};
+  for (let url in db) {
+    if (db[url].userID === id) {
+      userURLs[url] = db[url];
+    }
+  }
+  console.log(userURLs);
+  return userURLs;
+};
+
 
 const urlDatabase = {
-  "b2xVn2": {
-    longURL:"http://www.lighthouselabs.ca"
-  },
-  "9sm5xK": {
-    longURL:"http://www.google.com"
-  }
+  // "b2xVn2": {
+  //   longURL:"http://www.lighthouselabs.ca"
+  // },
+  // "9sm5xK": {
+  //   longURL:"http://www.google.com"
+  // }
 };
 
 const users = {
@@ -45,16 +57,20 @@ const users = {
   }
 };
 
-console.log("testing function",isEmailBeingUsed(users,"user2@example.com"));
+
 
 app.get("/urls", (req,res) => {
   const userID = req.cookies["userID"];
-  const user = users[userID];
-  if (!user) {
-    return res.redirect("/login");
+  if (!userID) {
+    res.status(400).send("Error,you have to log in to have access");
+    return;
   }
-  const templateVars = { urls: urlDatabase, user: userID, email: user.email };
-  console.log(templateVars);
+  const user = users[userID];
+  const templateVars = {
+    urls: urlsForUser(userID,urlDatabase),
+    user
+  };
+
   res.render("urls_index", templateVars);
 });
 
@@ -63,13 +79,18 @@ app.post("/urls",(req,res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const user = req.cookies["userID"];
-  const email = req.cookies["email"];
-  const templateVars = { urls: urlDatabase, users: users, user: user, email};
+  const userID = req.cookies["userID"];
+  const user = users[userID];
+  if (!userID) {
+    res.status(400).send("Error,you have to log in to have access");
+    return;
+  }
+  const templateVars = { user };
   res.render("urls_new", templateVars);
 });
 
 app.post("/urls/new", (req,res) => {
+  const userID = req.cookies["userID"];
   const shortURL = generateRandomString(7);
   const longURL = req.body.longURL;
 
@@ -78,16 +99,17 @@ app.post("/urls/new", (req,res) => {
   } else {
     urlDatabase[shortURL] = {
       longURL,
+      userID
+      
     };
-    console.log(urlDatabase);
   }
+  console.log('urldatabase', urlDatabase);
   res.redirect("/urls");
 });
 
 app.get("/register", (req,res) => {
-  const user = req.cookies["userID"];
-  const email = req.cookies["email"];
-  const templateVars = { urls: urlDatabase, users, user, email };
+  const user = null;
+  const templateVars = { user };
   res.render("register", templateVars);
 });
 
@@ -106,67 +128,53 @@ app.post("/register", (req,res) => {
       email,
       password
     };
-    console.log('-----------', users);
     res.cookie("userID", userID);
-    res.cookie("email", email);
     res.redirect("/urls");
   }
  
 });
 
 app.get("/login", (req,res) => {
-  const user = req.cookies["userID"];
-  if (user) {
+
+  const userID = req.cookies["userID"];
+  if (userID) {
     return res.redirect("/urls");
   }
-  // const email = req.cookies["email"];
-  // const templateVars = { urls: urlDatabase, users, user, email };
-  res.render("login");
+  const templateVars = { user: users[userID] };
+  res.render("login",templateVars);
 });
 
 app.post("/login", (req,res) => {
   const email = req.body.email;
   const password = req.body.password;
   const user = isEmailBeingUsed(users, email);
-  console.log('------------o', users);
-  console.log('------------>', user);
- 
   if (!email || !password) {
     return res.status(404).send("Error, the email and password fields are required to login");
   } else if (!user) {
     return res.status(404).send("Error, this email isn't registered.");
   }
-  
   res.cookie("userID", user.id);
   res.redirect("/urls");
- 
 });
 
 app.get("/logout", (req,res) => {
   res.clearCookie("userID", users.userID);
-  res.clearCookie("email", users.email);
-  console.log("users-email",users.email);
   res.redirect("/login");
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-  const user = req.cookies["userID"];
-  const email = req.cookies["email"];
+  const userID = req.cookies["userID"];
+  const user = users[userID];
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL].longURL;
-  console.log("get: shortURL",shortURL);
-  console.log(longURL);
-  const templateVars = { shortURL, longURL, users, user, email };
+  const templateVars = { shortURL, longURL, userID, user };
   res.render("urls_show", templateVars);
 });
 
 app.post("/urls/:shortURL", (req,res) => {
   const shortURL = req.params.shortURL; // params => get request => url, post request => form
   const newLongURL = req.body.longURL; // body comes from input content
-  console.log('req-params:',shortURL);
-  console.log('longURL', newLongURL);
   urlDatabase[shortURL].longURL = newLongURL;
-  console.log('updated urldatabase',urlDatabase);
   res.redirect("/urls");
 });
 
@@ -178,6 +186,12 @@ app.get("/u/:shortURL", (req, res) => {
 
 app.post("/urls/:shortURL/delete", (req,res) => {
   const shortURL = req.params.shortURL;
+  const userID = req.cookies["userID"];
+  const user = users[userID];
+  if (!user) {
+    res.status(400).send("Error,you have to log in to have access");
+  }
+  
   delete urlDatabase[shortURL];
   res.redirect("/urls");
 });
