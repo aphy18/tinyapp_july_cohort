@@ -9,7 +9,7 @@
 </head>
 <body>
   <%- include('partials/_headers') %>
-  <% if (user) { %>
+  <% if (locals.user) { %>
     <p>Please logout to register a new account.</p>
   <% } else { %>
     <h1>Register</h1>

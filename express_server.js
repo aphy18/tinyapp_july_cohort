@@ -13,6 +13,16 @@ const generateRandomString = length => {
   return r;
 };
 
+const isEmailBeingUsed =  (users, email) => {
+  for (let id in users) {
+    if (email === users[id].email) {
+      return users[id];
+    }
+  }
+  return false;
+};
+
+
 const urlDatabase = {
   "b2xVn2": {
     longURL:"http://www.lighthouselabs.ca"
@@ -35,10 +45,15 @@ const users = {
   }
 };
 
+console.log("testing function",isEmailBeingUsed(users,"user2@example.com"));
+
 app.get("/urls", (req,res) => {
-  const user = req.cookies["userID"];
-  const email = req.cookies["email"];
-  const templateVars = { urls: urlDatabase, user: user, email };
+  const userID = req.cookies["userID"];
+  const user = users[userID];
+  if (!user) {
+    return res.redirect("/login");
+  }
+  const templateVars = { urls: urlDatabase, user: userID, email: user.email };
   console.log(templateVars);
   res.render("urls_index", templateVars);
 });
@@ -72,52 +87,59 @@ app.post("/urls/new", (req,res) => {
 app.get("/register", (req,res) => {
   const user = req.cookies["userID"];
   const email = req.cookies["email"];
-  const templateVars = { urls: urlDatabase, users: users, user: user, email };
+  const templateVars = { urls: urlDatabase, users, user, email };
   res.render("register", templateVars);
-  console.log(user);
 });
 
 app.post("/register", (req,res) => {
   const email = req.body.email;
-  const checkEmail = req.cookies["email"];
   const password = req.body.password;
   const userID = generateRandomString(7);
 
   if (email === "" || password === "") {
-    res.status(400).send("Error");
-  } else if (email === checkEmail) {
-    res.status(400).send("Error, email is in use");
+    return res.status(400).send("Error, the email and password fields are required to register");
+  } else if (isEmailBeingUsed(users, email)) {
+    return res.status(400).send("Error, email is already in use");
+  } else {
+    users[userID] = {
+      id: userID,
+      email,
+      password
+    };
+    console.log('-----------', users);
+    res.cookie("userID", userID);
+    res.cookie("email", email);
+    res.redirect("/urls");
   }
-  users[userID] = {
-    id: userID,
-    email,
-    password
-  };
-  console.log("logging the users object: ", users);
-  res.cookie("userID", userID);
-  res.cookie("email", email);
-  res.redirect("/urls");
+ 
 });
 
 app.get("/login", (req,res) => {
   const user = req.cookies["userID"];
-  const email = req.cookies["email"];
-  const templateVars = { urls: urlDatabase, users: users, user: user, email };
-  res.render("login",templateVars);
+  if (user) {
+    return res.redirect("/urls");
+  }
+  // const email = req.cookies["email"];
+  // const templateVars = { urls: urlDatabase, users, user, email };
+  res.render("login");
 });
 
 app.post("/login", (req,res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const checkEmail = req.cookies["email"];
-  const checkPassword = req.cookies["password"];
-
-  if (email !== checkEmail || password !== checkPassword) {
-    res.status(403).send("Email or password incorrect. Please try again.");
+  const user = isEmailBeingUsed(users, email);
+  console.log('------------o', users);
+  console.log('------------>', user);
+ 
+  if (!email || !password) {
+    return res.status(404).send("Error, the email and password fields are required to login");
+  } else if (!user) {
+    return res.status(404).send("Error, this email isn't registered.");
   }
-
-  res.cookie("userID", users.userID);
+  
+  res.cookie("userID", user.id);
   res.redirect("/urls");
+ 
 });
 
 app.get("/logout", (req,res) => {
@@ -134,7 +156,7 @@ app.get("/urls/:shortURL", (req, res) => {
   const longURL = urlDatabase[shortURL].longURL;
   console.log("get: shortURL",shortURL);
   console.log(longURL);
-  const templateVars = { shortURL, longURL, users: users, user: user, email };
+  const templateVars = { shortURL, longURL, users, user, email };
   res.render("urls_show", templateVars);
 });
 
