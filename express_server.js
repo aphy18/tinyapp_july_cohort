@@ -39,7 +39,7 @@ app.post("/urls",(req,res) => {
 app.get("/urls/new", (req, res) => {
   const userID = req.session.userID;
   const user = users[userID];
-  if (!userID) {
+  if (!user) {
     res.status(404).send("Error,you have to log in to have access");
     return;
   }
