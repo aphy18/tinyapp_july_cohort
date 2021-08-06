@@ -1,66 +1,24 @@
+const { generateRandomString, isEmailBeingUsed, urlsForUser} = require('./helpers.js');
+
 const express = require("express");
 const app = express();
 const port = 8080;
-// const cookieSession = require('cookie-session');
-app.set("view engine", "ejs");
+const bcrypt = require('bcrypt');
 const bodyParser = require("body-parser");
+const cookieSession = require('cookie-session');
+
+app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({extended: true}));
-const cookieParser = require('cookie-parser');
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['abcdefghijklmnopqr123456789'],
+}));
 
-
-const generateRandomString = length => {
-  let r = Math.random().toString(36).substring(length);
-  return r;
-};
-
-const isEmailBeingUsed =  (users, email) => {
-  for (let id in users) {
-    if (email === users[id].email) {
-      return users[id];
-    }
-  }
-  return false;
-};
-
-const urlsForUser = (id,db) => {
-  const userURLs = {};
-  for (let url in db) {
-    if (db[url].userID === id) {
-      userURLs[url] = db[url];
-    }
-  }
-  console.log(userURLs);
-  return userURLs;
-};
-
-
-const urlDatabase = {
-  // "b2xVn2": {
-  //   longURL:"http://www.lighthouselabs.ca"
-  // },
-  // "9sm5xK": {
-  //   longURL:"http://www.google.com"
-  // }
-};
-
-const users = {
-  "userRandomID": {
-    id: "userRandomID",
-    email: "user@example.com",
-    password: "purple-monkey-dinosaur"
-  },
-  "user2RandomID": {
-    id: "user2RandomID",
-    email: "user2@example.com",
-    password: "dishwasher-funk"
-  }
-};
-
-
+const urlDatabase = {};
+const users = {};
 
 app.get("/urls", (req,res) => {
-  const userID = req.cookies["userID"];
+  const userID = req.session.userID;
   if (!userID) {
     res.status(400).send("Error,you have to log in to have access");
     return;
@@ -79,10 +37,10 @@ app.post("/urls",(req,res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const userID = req.cookies["userID"];
+  const userID = req.session.userID;
   const user = users[userID];
   if (!userID) {
-    res.status(400).send("Error,you have to log in to have access");
+    res.status(404).send("Error,you have to log in to have access");
     return;
   }
   const templateVars = { user };
@@ -90,7 +48,7 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.post("/urls/new", (req,res) => {
-  const userID = req.cookies["userID"];
+  const userID = req.session.userID;
   const shortURL = generateRandomString(7);
   const longURL = req.body.longURL;
 
@@ -100,10 +58,8 @@ app.post("/urls/new", (req,res) => {
     urlDatabase[shortURL] = {
       longURL,
       userID
-      
     };
   }
-  console.log('urldatabase', urlDatabase);
   res.redirect("/urls");
 });
 
@@ -116,27 +72,29 @@ app.get("/register", (req,res) => {
 app.post("/register", (req,res) => {
   const email = req.body.email;
   const password = req.body.password;
+  const hashedPassword = bcrypt.hashSync(password, 10);
   const userID = generateRandomString(7);
-
+  
   if (email === "" || password === "") {
-    return res.status(400).send("Error, the email and password fields are required to register");
+    res.status(400).send("Error, the email and password fields are required to register");
+    return;
   } else if (isEmailBeingUsed(users, email)) {
-    return res.status(400).send("Error, email is already in use");
+    res.status(400).send("Error, email is already in use");
+    return;
   } else {
     users[userID] = {
       id: userID,
       email,
-      password
+      password: hashedPassword
     };
-    res.cookie("userID", userID);
-    res.redirect("/urls");
+    req.session.userID = userID;
+    res.redirect("/login");
   }
- 
 });
 
 app.get("/login", (req,res) => {
 
-  const userID = req.cookies["userID"];
+  const userID = req.session.userID;
   if (userID) {
     return res.redirect("/urls");
   }
@@ -148,22 +106,31 @@ app.post("/login", (req,res) => {
   const email = req.body.email;
   const password = req.body.password;
   const user = isEmailBeingUsed(users, email);
+
   if (!email || !password) {
-    return res.status(404).send("Error, the email and password fields are required to login");
+    res.status(404).send("Error, the email and password fields are required to login");
+    return;
   } else if (!user) {
-    return res.status(404).send("Error, this email isn't registered.");
+    res.status(404).send("Error, this email isn't registered.");
+    return;
   }
-  res.cookie("userID", user.id);
-  res.redirect("/urls");
+  console.log("password ------->", password);
+  console.log("user ------>", user);
+  if (bcrypt.compare(password, user.password)) {
+    req.session.userID = user.id;
+    res.redirect("/urls");
+  } else {
+    res.status(404).send("The password you've entered is incorrect.");
+  }
 });
 
 app.get("/logout", (req,res) => {
-  res.clearCookie("userID", users.userID);
+  req.session = null;
   res.redirect("/login");
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-  const userID = req.cookies["userID"];
+  const userID = req.session.userID;
   const user = users[userID];
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL].longURL;
@@ -186,7 +153,7 @@ app.get("/u/:shortURL", (req, res) => {
 
 app.post("/urls/:shortURL/delete", (req,res) => {
   const shortURL = req.params.shortURL;
-  const userID = req.cookies["userID"];
+  const userID = req.session.userID;
   const user = users[userID];
   if (!user) {
     res.status(400).send("Error,you have to log in to have access");
